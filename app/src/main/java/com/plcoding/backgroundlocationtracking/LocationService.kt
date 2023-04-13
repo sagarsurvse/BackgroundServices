@@ -2,10 +2,16 @@ package com.plcoding.backgroundlocationtracking
 
 import android.app.NotificationManager
 import android.app.Service
+import android.content.ContentValues.TAG
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.android.volley.AuthFailureError
+import com.android.volley.Response
+import com.android.volley.toolbox.StringRequest
+import com.android.volley.toolbox.Volley
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +20,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import org.json.JSONObject
+
 
 class LocationService: Service() {
 
@@ -53,11 +61,12 @@ class LocationService: Service() {
             .getLocationUpdates(10000L)
             .catch { e -> e.printStackTrace() }
             .onEach { location ->
-                val lat = location.latitude.toString().takeLast(3)
-                val long = location.longitude.toString().takeLast(3)
+                val lat = location.latitude.toString()
+                val long = location.longitude.toString()
                 val updatedNotification = notification.setContentText(
                     "Location: ($lat, $long)"
                 )
+                callvolly(location.latitude.toString(),location.longitude.toString());
                 notificationManager.notify(1, updatedNotification.build())
             }
             .launchIn(serviceScope)
@@ -69,6 +78,34 @@ class LocationService: Service() {
         stopForeground(true)
         stopSelf()
     }
+
+    fun callvolly(lat: String, lon: String) {
+        var mRequestQueue = Volley.newRequestQueue(this)
+        val sr: StringRequest = object : StringRequest(
+            Method.POST, "https://files.mclabs.in/location/add",
+            Response.Listener { response ->
+                Log.d(TAG, "response:::::"+response)
+            },
+            Response.ErrorListener { error ->
+                Log.d(TAG, "response:::::"+error)
+            }) {
+            @Throws(AuthFailureError::class)
+            override fun getBody(): ByteArray {
+                val params2 = HashMap<String?, String?>()
+                params2["lat"] = lat
+                params2["long"] = lon
+                params2["username"] = "sagar"
+                return JSONObject(params2 as Map<*, *>?).toString().toByteArray()
+            }
+
+            override fun getBodyContentType(): String {
+                return "application/json"
+            }
+
+        }
+        mRequestQueue!!.add(sr!!)
+    }
+
 
     override fun onDestroy() {
         super.onDestroy()
